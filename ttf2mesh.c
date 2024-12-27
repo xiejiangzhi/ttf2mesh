@@ -1411,6 +1411,16 @@ static int parse_fmt12(ttf_t *ttf, uint8_t *data, int dataSize, bool headers_onl
     return TTF_DONE;
 }
 
+static int is_unicode_table(uint16_t platformID, uint16_t encodingID) {
+  // https://learn.microsoft.com/en-us/typography/opentype/spec/cmap#unicode-platform-platform-id--0
+  // UnicodePlatform
+  if (platformID == 0 && (encodingID == 3 || encodingID == 4)) return 1;
+  // https://learn.microsoft.com/en-us/typography/opentype/spec/cmap#windows-platform-platform-id--3
+  // WindowsPlatformUnicode
+  if (platformID == 3 && (encodingID == 1 || encodingID == 10)) return 1;
+  return 0;
+}
+
 static int locate_fmt4_table(pps_t *s)
 {
     int i;
@@ -1423,7 +1433,9 @@ static int locate_fmt4_table(pps_t *s)
         int offset = big32toh(s->pcmap->encRecs[i].offset);
         if (offset + 4 > s->scmap || offset + 4 < 0) return TTF_ERR_FMT;
         uint16_t format = *(uint16_t *)((char *)s->pcmap + offset);
-        if (big16toh(format) != 4) continue;
+        uint16_t platformID = big16toh(s->pcmap->encRecs[i].platformID);
+        uint16_t encodingID = big16toh(s->pcmap->encRecs[i].encodingID);
+        if (big16toh(format) != 4 || !is_unicode_table(platformID, encodingID)) continue;
         s->pfmt4 = (ttf_fmt4_t *)((char *)s->pcmap + offset);
         s->sfmt4 = s->scmap - offset;
         return TTF_DONE;
@@ -1443,7 +1455,9 @@ static int locate_fmt12_table(pps_t *s)
         int offset = big32toh(s->pcmap->encRecs[i].offset);
         if (offset + 4 > s->scmap || offset + 4 < 0) return TTF_ERR_FMT;
         uint16_t format = *(uint16_t *)((char *)s->pcmap + offset);
-        if (big16toh(format) != 12) continue;
+        uint16_t platformID = big16toh(s->pcmap->encRecs[i].platformID);
+        uint16_t encodingID = big16toh(s->pcmap->encRecs[i].encodingID);
+        if (big16toh(format) != 12 || !is_unicode_table(platformID, encodingID)) continue;
         s->pfmt12 = (ttf_fmt12_t *)((char *)s->pcmap + offset);
         s->sfmt12 = s->scmap - offset;
         return TTF_DONE;
